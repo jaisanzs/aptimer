@@ -13,5 +13,7 @@ globalThis.APT_DEFAULTS = {
   defaultSubjectId: "default",
   chime: true,
   pauseWhenHidden: false,
+  hideUntilAnswered: false, // hide the clock until you pick an answer
+
   warnAt: 0.25 // turn amber when 25% of the time is left
 };

@@ -34,7 +34,8 @@
 
   <div class="opts">
     <label>Fallback subject when nothing matches: <select id="def"></select></label>
-    <label><input type="checkbox" id="chime"> Chime when a question's time runs out</label>
+    <label><input type="checkbox" id="hideAns"> Hide the timer until I pick an answer <span class="hint">(it keeps running in the background; Alt+Shift+H to peek. Good for FRQs, where there's no answer click)</span></label>
+    <label><input type="checkbox" id="chime"> Chime when a question's time runs out <span class="hint">(silent while the timer is hidden)</span></label>
     <label><input type="checkbox" id="hidden"> Pause when the tab is hidden <span class="hint">(off = behaves like a real exam clock)</span></label>
     <label>Turn amber when <input type="text" id="warn" class="time"> % of the time is left</label>
   </div>
@@ -45,7 +46,7 @@
     <span id="status"></span>
   </div>
 
-  <p class="hint">Shortcuts (change at chrome://extensions/shortcuts): Alt+Shift+P pause, Alt+Shift+R reset question, Alt+Shift+T switch MCQ/FRQ, Alt+Shift+M minimize.</p>
+  <p class="hint">Shortcuts (change at chrome://extensions/shortcuts): Alt+Shift+P pause, Alt+Shift+R reset question, Alt+Shift+T switch MCQ/FRQ, Alt+Shift+H reveal/re-hide. Minimize has no default key; you can assign one there.</p>
 
   <script src="defaults.js"></script>
   <script src="options.js"></script>

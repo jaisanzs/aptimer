@@ -60,6 +60,7 @@ function render() {
   refreshDefault();
   $("#def").value = state.defaultSubjectId;
   $("#chime").checked = !!state.chime;
+  $("#hideAns").checked = !!state.hideUntilAnswered;
   $("#hidden").checked = !!state.pauseWhenHidden;
   $("#warn").value = Math.round((state.warnAt ?? 0.25) * 100);
 }
@@ -99,6 +100,7 @@ $("#save").onclick = () => {
     subjects,
     defaultSubjectId: $("#def").value,
     chime: $("#chime").checked,
+    hideUntilAnswered: $("#hideAns").checked,
     pauseWhenHidden: $("#hidden").checked,
     warnAt: warn / 100
   };

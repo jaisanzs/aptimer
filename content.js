@@ -66,6 +66,7 @@
   }
 
   let topHandler = null;
+  let topAnswerHandler = null;
   let lastSig = "";
   let lastBodyText = "";
 
@@ -89,6 +90,23 @@
       try { window.top.postMessage(msg, "*"); } catch (_) {}
     }
   }
+
+  // Picking an answer choice (in any frame) tells the top frame, which
+  // records the answer time and reveals a hidden timer.
+  function reportAnswered() {
+    if (IS_TOP) topAnswerHandler && topAnswerHandler();
+    else {
+      try { window.top.postMessage({ __apPaceTimer: 1, fid: FID, answered: true }, "*"); } catch (_) {}
+    }
+  }
+  document.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t && t.matches && t.matches('input[type="radio"], input[type="checkbox"]')) reportAnswered();
+  }, true);
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t && t.closest && t.closest('[role="radio"], [role="option"], .lrn-mcq-option, [class*="mcq-option"]')) reportAnswered();
+  }, true);
 
   // ------------------------------------------------------------------
   // Timer + UI. Top frame only.
@@ -170,8 +188,20 @@
     };
     window.addEventListener("message", (e) => {
       const d = e.data;
-      if (d && d.__apPaceTimer === 1 && d.fid && d.report) topHandler(d);
+      if (!d || d.__apPaceTimer !== 1 || !d.fid) return;
+      if (d.answered) topAnswerHandler();
+      else if (d.report) topHandler(d);
     });
+
+    topAnswerHandler = () => {
+      const q = current ? session.questions[current] : null;
+      if (!q) return;
+      if (q.answeredAt == null) q.answeredAt = q.elapsed;
+      q.revealed = true;
+      saveSession();
+      render();
+    };
+    const isHidden = (q) => !!(settings.hideUntilAnswered && q && !q.revealed);
 
     function evaluate() {
       detectedSubjectId = detectSubject();
@@ -226,7 +256,8 @@
           const before = q.elapsed;
           q.elapsed += dt;
           const t = targetMs(q);
-          if (before < t && q.elapsed >= t) {
+          // No flash or chime while hidden: that would defeat the point of hiding it.
+          if (before < t && q.elapsed >= t && !isHidden(q)) {
             flashUntil = Date.now() + 1500;
             if (settings.chime) chime();
           }
@@ -281,6 +312,14 @@
             q.override = next === q.detected ? undefined : next;
           }
           break;
+        case "reveal":
+          // Shortcut: peek at / re-hide the current question's timer.
+          if (q && settings.hideUntilAnswered) q.revealed = !q.revealed;
+          break;
+        case "toggle-hide-mode":
+          settings.hideUntilAnswered = !settings.hideUntilAnswered;
+          chrome.storage.sync.set({ hideUntilAnswered: settings.hideUntilAnswered });
+          break;
         case "toggle-minimize": ui.minimized = !ui.minimized; saveUI(); break;
         case "toggle-list": ui.listOpen = !ui.listOpen; saveUI(); break;
         case "new-session":
@@ -321,7 +360,7 @@
         .hdr{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 10px;background:#171a1f;cursor:move;touch-action:none}
         .title{font-weight:600;font-size:12px;color:#9aa4b2;flex:1;white-space:nowrap}
         .minitime{display:none;font:600 14px ui-monospace,Menlo,Consolas,monospace;flex:1}
-        select{font:inherit;font-size:11px;background:#2a2f37;color:#e8eaed;border:1px solid #3a3f47;border-radius:6px;max-width:112px;padding:2px}
+        select{font:inherit;font-size:11px;background:#2a2f37;color:#e8eaed;border:1px solid #3a3f47;border-radius:6px;max-width:96px;padding:2px}
         .ib{all:unset;cursor:pointer;color:#9aa4b2;padding:2px 6px;border-radius:5px;font-size:13px}
         .ib:hover{background:#2a2f37;color:#fff}
         .body{padding:8px 10px 10px}
@@ -347,6 +386,8 @@
         .panel[data-state=over] .time,.panel[data-state=over] .minitime{color:#ff5a5f}
         .panel[data-state=over] .fill{background:#ff5a5f}
         .panel[data-state=idle] .time,.panel[data-state=idle] .minitime{color:#6b7480}
+        .panel[data-state=hidden] .time,.panel[data-state=hidden] .minitime{color:#6b7480;letter-spacing:.08em}
+        .ib.on{color:#8ab4f8}
         .panel.paused .time,.panel.paused .minitime{opacity:.45}
         .panel.mini{width:auto;min-width:150px}
         .panel.mini .body,.panel.mini .title,.panel.mini select{display:none}
@@ -358,6 +399,7 @@
         <div class="hdr">
           <span class="title">AP Pace</span><span class="minitime">--:--</span>
           <select class="subject" title="Subject"></select>
+          <button class="ib eye" data-a="toggle-hide-mode" title="Hide timer until you pick an answer">◐</button>
           <button class="ib" data-a="options" title="Settings">⚙</button>
           <button class="ib" data-a="toggle-minimize" title="Minimize (Alt+Shift+M)">–</button>
         </div>
@@ -381,7 +423,8 @@
     const $ = (s) => root.querySelector(s);
     const els = {
       panel: $(".panel"), hdr: $(".hdr"), time: $(".time"), mini: $(".minitime"), pill: $(".pill"),
-      fill: $(".fill"), meta: $(".meta"), pause: $(".pause"), list: $(".list"), subject: $(".subject")
+      fill: $(".fill"), meta: $(".meta"), pause: $(".pause"), list: $(".list"), subject: $(".subject"),
+      eye: $(".eye")
     };
     (document.body || document.documentElement).appendChild(host);
     // SPAs sometimes wipe the body; re-attach if that happens.
@@ -457,8 +500,19 @@
       els.pause.textContent = paused ? "▶" : "❚❚";
       els.list.classList.toggle("open", !!ui.listOpen);
       if (els.subject.value !== subjectOverride) els.subject.value = subjectOverride;
+      els.eye.classList.toggle("on", !!settings.hideUntilAnswered);
+      els.eye.title = settings.hideUntilAnswered
+        ? "Hide mode ON: timer shows after you answer (click to turn off)"
+        : "Hide timer until you pick an answer";
 
-      if (!q) {
+      if (q && isHidden(q)) {
+        els.panel.dataset.state = "hidden";
+        els.time.textContent = "••:••";
+        els.mini.textContent = `hidden · ${typeOf(q).toUpperCase()}`;
+        els.pill.textContent = typeOf(q).toUpperCase() + (q.override ? " ✎" : "");
+        els.fill.style.width = "0%";
+        els.meta.textContent = `Q${q.label} · answer to reveal (Alt+Shift+H)`;
+      } else if (!q) {
         els.panel.dataset.state = "idle";
         els.time.textContent = els.mini.textContent = "--:--";
         els.pill.textContent = "—";
@@ -476,7 +530,8 @@
         els.fill.style.width = Math.min(100, (q.elapsed / t) * 100) + "%";
         const b = balanceMs();
         const pace = Math.abs(b) < 1000 ? "on pace" : b > 0 ? `banked ${fmt(b)}` : `behind ${fmt(b)}`;
-        els.meta.textContent = `Q${q.label} · goal ${fmt(t)} · ${pace}`;
+        const head = q.answeredAt != null ? `answered ${fmt(q.answeredAt)} / ${fmt(t)}` : `goal ${fmt(t)}`;
+        els.meta.textContent = `Q${q.label} · ${head} · ${pace}`;
       }
 
       if (ui.listOpen && Date.now() - lastListRender > 1000) {
@@ -490,8 +545,10 @@
           const left = document.createElement("span");
           left.textContent = `Q${item.label} ${typeOf(item).toUpperCase()}`;
           const right = document.createElement("span");
-          right.className = item.elapsed > t ? "bad" : "good";
-          right.textContent = `${fmt(item.elapsed)} / ${fmt(t)}`;
+          // Show time-to-first-answer when we have it; that's the number that matters for pacing.
+          const shown = item.answeredAt != null ? item.answeredAt : item.elapsed;
+          right.className = shown > t ? "bad" : "good";
+          right.textContent = `${item.answeredAt != null ? "✓ " : ""}${fmt(shown)} / ${fmt(t)}`;
           div.append(left, right);
           els.list.appendChild(div);
         }
