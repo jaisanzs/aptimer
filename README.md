@@ -20,13 +20,3 @@ A Chrome extension that starts a countdown the moment an AP Classroom question a
 - −15s / +15s permanently adjusts the goal for the current subject and type.
 
 Shortcuts (editable at `chrome://extensions/shortcuts`): Alt+Shift+P pause, Alt+Shift+R reset question, Alt+Shift+T flip MCQ/FRQ, Alt+Shift+M minimize.
-
-## If detection is off
-
-The question-detection selectors are educated guesses based on how Learnosity (the engine AP Classroom uses) usually structures its HTML. They haven't been tested against a live progress check. Signs something's wrong:
-
-- Timer says "waiting for a question" while you're on one
-- All questions share one clock
-- MCQ shows as FRQ (press Alt+Shift+T to override per question)
-
-To fix it: on a question, right-click the question text → Inspect, and copy the class names you see on the question, the answer choices and the "Question X of Y" label. The lists to edit are at the top of `content.js` (`STEM_SELECTORS`, `MCQ_SELECTORS`, `FRQ_SELECTORS`, `COUNTER_RE`). After editing, hit the reload arrow on the extension card and refresh AP Classroom.
