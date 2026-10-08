@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "AP Pace Timer",
+  "version": "1.0.0",
+  "description": "Auto-starts a per-question pacing timer on AP Classroom, based on subject and question type.",
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://apclassroom.collegeboard.org/*",
+        "https://*.collegeboard.org/*",
+        "https://*.learnosity.com/*"
+      ],
+      "js": ["defaults.js", "content.js"],
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "AP Pace Timer settings" },
+  "commands": {
+    "toggle-pause":   { "suggested_key": { "default": "Alt+Shift+P" }, "description": "Pause / resume timer" },
+    "reset-question": { "suggested_key": { "default": "Alt+Shift+R" }, "description": "Reset current question's time" },
+    "toggle-type":    { "suggested_key": { "default": "Alt+Shift+T" }, "description": "Switch current question MCQ / FRQ" },
+    "toggle-minimize":{ "suggested_key": { "default": "Alt+Shift+M" }, "description": "Minimize / expand the timer" }
+  }
+}
